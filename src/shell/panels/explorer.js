@@ -2,8 +2,8 @@
 
 (function(global) {
     global.Itera = global.Itera || {};
-    global.Itera.UI = global.Itera.UI || {};
-    global.Itera.UI.Components = global.Itera.UI.Components || {};
+    global.Itera.Shell = global.Itera.Shell || {};
+    global.Itera.Shell.Panels = global.Itera.Shell.Panels || {};
 
     const DOM_IDS = {
         CONTAINER: 'file-explorer',
@@ -33,7 +33,7 @@
 
             this._initElements();
             
-            this.treeView = new global.Itera.UI.Components.TreeView(
+            this.treeView = new global.Itera.Shell.Panels.TreeView(
                 this.els.CONTAINER, 
                 this.els.CONTEXT_MENU
             );
@@ -486,6 +486,6 @@
         }
     }
 
-    global.Itera.UI.Components.Explorer = Explorer;
+    global.Itera.Shell.Panels.Explorer = Explorer;
 
 })(window);

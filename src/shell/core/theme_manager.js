@@ -2,7 +2,8 @@
 
 (function(global) {
 	global.Itera = global.Itera || {};
-	global.Itera.UI = global.Itera.UI || {};
+	global.Itera.Shell = global.Itera.Shell || {};
+	global.Itera.Shell.Core = global.Itera.Shell.Core || {};
 
 	class ThemeManager {
 		/**
@@ -190,6 +191,6 @@
 		}
 	}
 
-	global.Itera.UI.ThemeManager = ThemeManager;
+	global.Itera.Shell.Core.ThemeManager = ThemeManager;
 
 })(window);

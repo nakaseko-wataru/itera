@@ -5,7 +5,10 @@
 	global.Itera.Control = global.Itera.Control || {};
 
 	class GuestCompiler {
-		constructor() {}
+		constructor() {
+			// [path] -> { url, updated_at }
+			this.assetCache = new Map();
+		}
 
 		_getScreenshotHelperCode(pid) {
 			return `
@@ -51,18 +54,44 @@ window.addEventListener('message', async (e) => {
 			const filePaths = vfs.listFiles({
 				recursive: true
 			});
+			const currentFiles = new Set(filePaths);
 			const urlMap = {};
+			
+			// プロセス終了時(kill)に破棄させるURLのリスト。HTML専用にする。
 			const blobUrls = [];
 
-			// 1. Assets (HTML以外) の Blob 作成
+			// 0. キャッシュのクリーンアップ (VFSから削除されたファイルのURLをメモリ解放)
+			for (const [path, cached] of this.assetCache.entries()) {
+				if (!currentFiles.has(path)) {
+					URL.revokeObjectURL(cached.url);
+					this.assetCache.delete(path);
+				}
+			}
+
+			// 1. Assets (HTML以外) の Blob 作成 (グローバルキャッシュを利用)
 			for (const path of filePaths) {
 				if (path.endsWith('.html')) continue;
 				if (path.startsWith('.sample/') || path.startsWith('src/')) continue;
+
+				const stat = vfs.stat(path);
+				const cached = this.assetCache.get(path);
+
+				// キャッシュが有効なら再利用
+				if (cached && cached.updated_at === stat.updated_at) {
+					urlMap[path] = cached.url;
+					continue;
+				}
+
+				// キャッシュが古い場合はメモリ解放
+				if (cached) {
+					URL.revokeObjectURL(cached.url);
+				}
 
 				const content = vfs.readFile(path);
 				const mimeType = this._getMimeType(path);
 				let blob;
 
+				// Base64画像の大規模展開（重い処理）はここを通るが、キャッシュにより2回目以降はスキップされる
 				if (mimeType.startsWith('image/') && content.startsWith('data:')) {
 					const res = await fetch(content);
 					blob = await res.blob();
@@ -73,8 +102,10 @@ window.addEventListener('message', async (e) => {
 				}
 
 				const url = URL.createObjectURL(blob);
+				this.assetCache.set(path, { url, updated_at: stat.updated_at });
 				urlMap[path] = url;
-				blobUrls.push(url);
+				
+				// 💡 アセットのURLはプロセス終了時に破棄させないため、blobUrlsには入れない
 			}
 
 			let entryPointUrl = null;

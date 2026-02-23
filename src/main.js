@@ -3,13 +3,13 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Instantiate the Main Controller
     // (Dependencies are expected to be loaded by <script> tags in index.html)
-    if (!globalThis.Itera || !globalThis.Itera.UI || !globalThis.Itera.UI.MainController) {
+    if (!globalThis.Itera || !globalThis.Itera.Shell || !globalThis.Itera.Shell.ShellController) {
         console.error("Critical Error: Itera system scripts not loaded.");
         alert("System Error: Scripts failed to load. Check console.");
         return;
     }
 
-    const controller = new globalThis.Itera.UI.MainController();
+    const controller = new globalThis.Itera.Shell.ShellController();
 
     try {
         // 2. Initialize the System

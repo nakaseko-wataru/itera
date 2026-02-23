@@ -2,8 +2,8 @@
 
 (function(global) {
     global.Itera = global.Itera || {};
-    global.Itera.UI = global.Itera.UI || {};
-    global.Itera.UI.Services = global.Itera.UI.Services || {};
+    global.Itera.Shell = global.Itera.Shell || {};
+    global.Itera.Shell.Services = global.Itera.Shell.Services || {};
 
     /**
      * LPML (LLM-Prompting Markup Language) Renderer
@@ -133,6 +133,6 @@
         }
     }
 
-    global.Itera.UI.Services.LPMLRenderer = LPMLRenderer;
+    global.Itera.Shell.Services.LPMLRenderer = LPMLRenderer;
 
 })(window);

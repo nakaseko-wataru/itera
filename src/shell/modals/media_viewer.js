@@ -2,8 +2,8 @@
 
 (function(global) {
     global.Itera = global.Itera || {};
-    global.Itera.UI = global.Itera.UI || {};
-    global.Itera.UI.Components = global.Itera.UI.Components || {};
+    global.Itera.Shell = global.Itera.Shell || {};
+    global.Itera.Shell.Panels = global.Itera.Shell.Panels || {};
 
     const DOM_IDS = {
         OVERLAY: 'media-overlay',
@@ -172,6 +172,6 @@
         }
     }
 
-    global.Itera.UI.Components.MediaViewer = MediaViewer;
+    global.Itera.Shell.Modals.MediaViewer = MediaViewer;
 
 })(window);

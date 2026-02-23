@@ -2,8 +2,8 @@
 
 (function(global) {
     global.Itera = global.Itera || {};
-    global.Itera.UI = global.Itera.UI || {};
-    global.Itera.UI.Components = global.Itera.UI.Components || {};
+    global.Itera.Shell = global.Itera.Shell || {};
+    global.Itera.Shell.Modals = global.Itera.Shell.Modals || {};
 
     const DOM_IDS = {
         MODAL: 'history-modal',
@@ -173,6 +173,6 @@
         }
     }
 
-    global.Itera.UI.Components.SettingsModal = SettingsModal;
+    global.Itera.Shell.Modals.SettingsModal = SettingsModal;
 
 })(window);

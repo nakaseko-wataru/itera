@@ -13,8 +13,8 @@
 			const path = params.path || 'index.html';
 			const mode = params.mode || (pid === 'main' ? 'foreground' : 'background');
 
-			if (context.ui && context.ui.components && context.ui.components.processManager) {
-				await context.ui.components.processManager.spawn(pid, path, mode);
+			if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
+				await context.shell.windowing.processManager.spawn(pid, path, mode);
 				return {
 					log: `[spawn] Process '${pid}' started at ${path} (${mode} mode).`,
 					ui: `🚀 Spawned [${pid}]`
@@ -31,8 +31,8 @@
 			const pid = params.pid;
 			if (!pid) throw new Error("Attribute 'pid' is required for <kill>.");
 
-			if (context.ui && context.ui.components && context.ui.components.processManager) {
-				const success = context.ui.components.processManager.kill(pid);
+			if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
+				const success = context.shell.windowing.processManager.kill(pid);
 				if (success) {
 					return {
 						log: `[kill] Process '${pid}' terminated.`,
@@ -53,8 +53,8 @@
 
 		// 3. ps (List processes)
 		registry.register('ps', async (params, context) => {
-			if (context.ui && context.ui.components && context.ui.components.processManager) {
-				const list = context.ui.components.processManager.list();
+			if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
+				const list = context.shell.windowing.processManager.list();
 				if (list.length === 0) {
 					return {
 						log: "No processes running.",
@@ -75,13 +75,13 @@
 
 		// 4. take_screenshot
 		registry.register('take_screenshot', async (params, context) => {
-			if (context.ui && context.ui.captureScreenshot) {
+			if (context.shell && context.shell.captureScreenshot) {
 				// UIがレンダリングされるのを少し待つ
 				await new Promise(r => setTimeout(r, 1000));
 
 				try {
 					// captureScreenshotは生のBase64文字列を返す仕様
-					const base64 = await context.ui.captureScreenshot();
+					const base64 = await context.shell.captureScreenshot();
 
 					// ★ VFSへ保存処理
 					const vfs = context.vfs;

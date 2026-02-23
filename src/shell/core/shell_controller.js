@@ -2,19 +2,22 @@
 
 (function(global) {
 	global.Itera = global.Itera || {};
-	global.Itera.UI = global.Itera.UI || {};
+	global.Itera.Shell = global.Itera.Shell || {};
 
 	const {
 		State,
 		Control,
 		Cognitive,
 		Bridge,
-		UI
+		Shell
 	} = global.Itera;
 	const {
-		Components,
-        Services
-	} = UI;
+		Core,
+		Windowing,
+		Panels,
+		Modals,
+		Services
+	} = Shell;
 
 	const DOM_IDS = {
 		BTN_MOBILE_FILES: 'mobile-nav-files',
@@ -29,10 +32,12 @@
 		MODEL_STATUS: 'model-status'
 	};
 
-	class MainController {
+	class ShellController {
 		constructor() {
 			this.config = global.Itera.Config || {};
-			this.components = {};
+			this.panels = {};
+			this.modals = {};
+			this.windowing = {};
 			this.state = {};
 			this.engine = null;
 			this.bridge = null;
@@ -90,7 +95,7 @@
 				configManager
 			};
 
-			const themeManager = new UI.ThemeManager(configManager);
+			const themeManager = new Core.ThemeManager(configManager);
 			const translator = new Cognitive.Translator();
             
             const renderer = (Services && Services.LPMLRenderer) 
@@ -99,14 +104,14 @@
 
             if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
 
-			this.components.chat = new Components.ChatPanel(renderer);
-			this.components.explorer = new Components.Explorer(vfs);
-			this.components.editor = new Components.EditorModal();
-			this.components.processManager = new Components.ProcessManager(vfs);
-			this.components.settings = new Components.SettingsModal(storage, configManager);
-			this.components.media = new Components.MediaViewer();
+			this.panels.chat = new Panels.ChatPanel(renderer);
+			this.panels.explorer = new Panels.Explorer(vfs);
+			this.modals.editor = new Modals.EditorModal();
+			this.windowing.processManager = new Windowing.ProcessManager(vfs);
+			this.modals.settings = new Modals.SettingsModal(storage, configManager);
+			this.modals.media = new Modals.MediaViewer();
 
-			this.components.chat.setVfs(vfs);
+			this.panels.chat.setVfs(vfs);
 
 			const registry = new Control.ToolRegistry();
 			if (Control.Tools) {
@@ -136,7 +141,7 @@
 				this._createLLM(),
 				translator,
 				registry, {
-					ui: this
+					shell: this
 				}
 			);
 
@@ -146,7 +151,7 @@
 			this._bindEvents();
 			this._bindMobileUI();
 
-			this.components.chat.renderHistory(history.get());
+			this.panels.chat.renderHistory(history.get());
 			this._updateStorageUI(vfs.getUsage());
 
 			// OS Boot Sequence: Start background services
@@ -156,7 +161,7 @@
 					if (Array.isArray(services)) {
 						for (const svc of services) {
 							if (svc.pid && svc.path) {
-								await this.components.processManager.spawn(svc.pid, svc.path, 'background');
+								await this.windowing.processManager.spawn(svc.pid, svc.path, 'background');
 							}
 						}
 					}
@@ -178,13 +183,8 @@
 		}
 
 		_bindEvents() {
-			const {
-				chat,
-				explorer,
-				editor,
-				media,
-				settings
-			} = this.components;
+			const { chat, explorer } = this.panels;
+			const { editor, media, settings } = this.modals;
 			const {
 				vfs,
 				history,
@@ -403,7 +403,7 @@
 				history
 			} = this.state;
 			const bridge = this.bridge;
-			const chat = this.components.chat;
+			const chat = this.panels.chat;
 
 			const checkAndEmitEvent = (options, type, desc) => {
 				if (options && options.silent === false) {
@@ -461,16 +461,16 @@
 			}) => {
 				const pid = (options && options.pid) ? options.pid : 'main';
 				const mode = (options && options.mode) ? options.mode : (pid === 'main' ? 'foreground' : 'background');
-				await this.components.processManager.spawn(pid, path, mode);
+				await this.windowing.processManager.spawn(pid, path, mode);
 				if (mode === 'foreground') this._closeMobileDrawers();
 			});
 
 			bridge.registerHandler('kill_process', ({ pid }) => {
-				return this.components.processManager.kill(pid);
+				return this.windowing.processManager.kill(pid);
 			});
 
 			bridge.registerHandler('broadcast_event', ({ eventName, payload }) => {
-				this.components.processManager.broadcast(eventName, payload);
+				this.windowing.processManager.broadcast(eventName, payload);
 			});
 
 			bridge.registerHandler('add_event_log', ({
@@ -481,7 +481,7 @@
 				const turn = this.state.history.append(global.Itera.Role.SYSTEM, lpml, {
 					type: 'event_log'
 				});
-				this.components.chat.appendTurn(turn);
+				this.panels.chat.appendTurn(turn);
 			});
 
 			bridge.registerHandler('show_notification', ({
@@ -493,7 +493,7 @@
 				path
 			}) => {
 				const content = vfs.readFile(path);
-				this.components.editor.open(path, content);
+				this.modals.editor.open(path, content);
 				this._closeMobileDrawers();
 			});
 
@@ -505,7 +505,7 @@
 				let text = `[INTERNAL AGENT TRIGGER]\n${instruction}`;
 				if (options?.context) text += `\n\nContext: ${JSON.stringify(options.context)}`;
 				this._refreshEngineConfig();
-				this.components.chat.setProcessing(true);
+				this.panels.chat.setProcessing(true);
 				await this.engine.injectUserTurn([{
 					text
 				}], {
@@ -632,14 +632,14 @@
 
 		async refreshPreview(path) {
 			// mainプロセスとして起動するショートカット
-			await this.components.processManager.spawn('main', path || 'index.html', 'foreground');
+			await this.windowing.processManager.spawn('main', path || 'index.html', 'foreground');
 		}
 
 		async captureScreenshot() {
-			return await this.components.processManager.captureScreenshot('main');
+			return await this.windowing.processManager.captureScreenshot('main');
 		}
 	}
 
-	global.Itera.UI.MainController = MainController;
+	global.Itera.Shell.ShellController = ShellController;
 
 })(window);

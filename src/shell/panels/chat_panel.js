@@ -2,8 +2,8 @@
 
 (function(global) {
 	global.Itera = global.Itera || {};
-	global.Itera.UI = global.Itera.UI || {};
-	global.Itera.UI.Components = global.Itera.UI.Components || {};
+	global.Itera.Shell = global.Itera.Shell || {};
+	global.Itera.Shell.Windowing = global.Itera.Shell.Windowing || {};
 
 	const DOM_IDS = {
 		HISTORY: 'chat-history',
@@ -426,6 +426,6 @@
 		}
 	}
 
-	global.Itera.UI.Components.ChatPanel = ChatPanel;
+	global.Itera.Shell.Panels.ChatPanel = ChatPanel;
 
 })(window);

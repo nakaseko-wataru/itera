@@ -2,8 +2,8 @@
 
 (function(global) {
     global.Itera = global.Itera || {};
-    global.Itera.UI = global.Itera.UI || {};
-    global.Itera.UI.Components = global.Itera.UI.Components || {};
+    global.Itera.Shell = global.Itera.Shell || {};
+    global.Itera.Shell.Modals = global.Itera.Shell.Modals || {};
 
     const DOM_IDS = {
         OVERLAY: 'editor-overlay',
@@ -167,6 +167,6 @@
         }
     }
 
-    global.Itera.UI.Components.EditorModal = EditorModal;
+    global.Itera.Shell.Modals.EditorModal = EditorModal;
 
 })(window);

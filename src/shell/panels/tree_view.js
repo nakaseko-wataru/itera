@@ -2,8 +2,8 @@
 
 (function(global) {
     global.Itera = global.Itera || {};
-    global.Itera.UI = global.Itera.UI || {};
-    global.Itera.UI.Components = global.Itera.UI.Components || {};
+    global.Itera.Shell = global.Itera.Shell || {};
+    global.Itera.Shell.Panels = global.Itera.Shell.Panels || {};
 
     class TreeView {
         constructor(containerEl, contextMenuEl) {
@@ -370,6 +370,6 @@
         }
     }
 
-    global.Itera.UI.Components.TreeView = TreeView;
+    global.Itera.Shell.Panels.TreeView = TreeView;
 
 })(window);
