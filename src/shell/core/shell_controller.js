@@ -207,25 +207,26 @@
 						else reader.readAsDataURL(file);
 					});
 
-					if (isText) {
-						// テキストファイル
-						content.push({
-							text: `<user_attachment name="${file.name}">\n${data}\n</user_attachment>`
-						});
-					} else {
-						// バイナリファイル
-						if (!vfs.exists(CACHE_DIR) && vfs.createDirectory) {
-							vfs.createDirectory(CACHE_DIR);
-						}
+					// キャッシュディレクトリの作成 (テキスト/バイナリ共通)
+					if (!vfs.exists(CACHE_DIR) && vfs.createDirectory) {
+						vfs.createDirectory(CACHE_DIR);
+					}
 
-						const timestamp = Date.now();
-						const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-						const path = `${CACHE_DIR}/${timestamp}_${safeName}`;
+					const timestamp = Date.now();
+					const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+					const path = `${CACHE_DIR}/${timestamp}_${safeName}`;
 
-						try {
-							vfs.writeFile(path, data);
-							
-                            // メディアオブジェクト（画像表示用・FileAPI用）
+					try {
+						// VFSへの保存 (テキスト/バイナリ共通)
+						vfs.writeFile(path, data);
+
+						if (isText) {
+							// テキストファイル: 内容を展開しつつ、path属性を付与
+							content.push({
+								text: `<user_attachment name="${file.name}" path="${path}">\n${data}\n</user_attachment>`
+							});
+						} else {
+							// バイナリファイル: メディアオブジェクトとして追加
 							content.push({
 								media: {
 									path: path,
@@ -234,16 +235,15 @@
 								}
 							});
 	
-                            // user_inputの外に配置されるよう、独立したtextパーツとして追加
-                            content.push({
-                                text: `<user_attachment path="${path}">[Binary File: ${file.name}]</user_attachment>`
-                            });
-
-						} catch (e) {
-							console.error(`[MainController] Failed to save upload: ${path}`, e);
-							alert(`Failed to save attachment: ${e.message}`);
-							return;
+							// user_inputの外に配置されるよう、独立したtextパーツとして追加
+							content.push({
+								text: `<user_attachment path="${path}">[Binary File: ${file.name}]</user_attachment>`
+							});
 						}
+					} catch (e) {
+						console.error(`[MainController] Failed to save upload: ${path}`, e);
+						alert(`Failed to save attachment: ${e.message}`);
+						return;
 					}
 				}
 
