@@ -1,4 +1,4 @@
-# Itera Blueprint: Itera Link v1.1
+# Itera Blueprint: Itera Link v1.2.1
 
 > **What is this?**
 > This is an executable blueprint for Itera OS. Drag and drop this file into your Itera chat and tell the AI: *"Install this blueprint."*
@@ -12,10 +12,10 @@ Please install this system by strictly following these phases:
 
 1. **Explain & Ask**: Briefly explain what Itera Link is to the user (a secure P2P network for their AI secretaries across devices) and ask for permission to begin installation. Wait for their approval.
 2. **Deploy Manual**: Create the `itera_link_manual.md` so you know how to use the protocol.
-3. **Deploy Daemon**: Create the background service that handles the Nostr network and file packaging.
+3. **Deploy Daemon**: Create the background service that handles the Nostr network, file packaging, and safe queue management.
 4. **Deploy UI**: Create the settings application for the user.
 5. **System Registration**: Update `apps.json` and `services.json` to enable the app and daemon.
-6. **Post-Install**: Instruct the user to open the Itera Link app to generate their Nostr keys.
+6. **Post-Install**: Instruct the user to open the Itera Link app from the Library to generate their Nostr keys.
 
 ---
 
@@ -44,22 +44,24 @@ Give it a unique name, e.g., `msg_<timestamp>.json`.
 \`\`\`
 *Note: The Daemon will automatically read these paths from the VFS, package the actual files, encrypt them, and send them. Do NOT embed file contents in the JSON yourself.*
 
-**Size Limit Warning**: Nostr relays have strict size limits (typically around 64KB per event). Large files (like high-res images) will cause the transmission to fail. Please keep attachments small (a few KB of text, JSON, or highly compressed thumbnails). If the Daemon rejects your message due to size, you will see an error log in your chat history.
+**Size Limit Warning**: Nostr relays have strict size limits. Please keep attachments small (a few KB of text or JSON). If the message is too large or invalid, the Daemon will rename your file to `.error` and leave a log in your chat history.
 
 ## 📥 How to RECEIVE a Message
 When a message arrives, the Daemon will automatically unpack it into a new directory: `data/itera_link/inbox/<message_id>/`.
-Inside this directory, you will find:
+
+Inside this directory, you will always find:
+- `meta.json` (Contains the sender's "npub" address and timestamp)
 - `message.md` (The text content from the sender)
 - Any attached files (e.g., `project_draft.md`)
 
 You will be notified via a system event log in your chat history.
-**Your Duty**: When notified, use `<list_files>` and `<read_file>` to review the inbox directory, process the request, and then use `<delete_file>` to remove the entire `<message_id>` directory to keep the system clean.
+**Your Duty**: When notified, use `<read_file>` on `meta.json` to identify the sender, read `message.md`, process the request, and then use `<delete_file>` to remove the entire `<message_id>` directory to keep the system clean.
 ```
 
 ---
 
 ## Phase 3: Deploy Background Daemon
-Create the daemon that handles the actual networking. Note the specific CDN version and error handling mechanisms.
+Create the daemon that handles the actual networking.
 
 ### File: `services/itera_link_daemon.html`
 ```html
@@ -146,7 +148,7 @@ Create the daemon that handles the actual networking. Note the specific CDN vers
                 const decrypted = await nip04.decrypt(privKeyHex, event.pubkey, event.content);
                 const senderNpub = nip19.npubEncode(event.pubkey);
                 
-                // Fail-safe parsing: handle both IteraLink JSON and normal text DMs
+                // Fail-safe parsing
                 let payload;
                 try {
                     payload = JSON.parse(decrypted);
@@ -158,6 +160,14 @@ Create the daemon that handles the actual networking. Note the specific CDN vers
                 const msgDir = `${DIRS.inbox}/${event.id}`;
                 await MetaOS.saveFile(`${msgDir}/.keep`, "", {silent:true});
                 
+                // Save Meta Data (Crucial for AI context)
+                const metaData = {
+                    id: event.id,
+                    sender: senderNpub,
+                    timestamp: event.created_at
+                };
+                await MetaOS.saveFile(`${msgDir}/meta.json`, JSON.stringify(metaData, null, 2), {silent:true});
+
                 // Save Content
                 if (payload.content) {
                     await MetaOS.saveFile(`${msgDir}/message.md`, payload.content, {silent:true});
@@ -171,19 +181,18 @@ Create the daemon that handles the actual networking. Note the specific CDN vers
                     }
                 }
 
-                // Mark processed immediately to prevent loops
+                // Mark processed immediately
                 processedIds.add(event.id);
                 await MetaOS.saveFile(DIRS.processed, JSON.stringify([...processedIds]), {silent:true});
 
                 // Notify AI
                 MetaOS.addEventLog(
-                    `[Itera Link] New message received from ${senderNpub}.\nUnpacked to: ${msgDir}/\nPlease read it and process the request.`, 
+                    `[Itera Link] New message received from ${senderNpub.substring(0, 16)}...\nUnpacked to: ${msgDir}/\nPlease read meta.json and message.md to process the request.`, 
                     'itera_link_received'
                 );
 
             } catch (e) {
                 console.error("[IteraLink] Failed to process incoming message", e);
-                // Mark broken messages as processed to avoid infinite crash loops
                 if (event && event.id) {
                     processedIds.add(event.id);
                     MetaOS.saveFile(DIRS.processed, JSON.stringify([...processedIds]), {silent:true});
@@ -200,65 +209,79 @@ Create the daemon that handles the actual networking. Note the specific CDN vers
                 const outboxFiles = (Array.isArray(files) ? files : []).filter(f => f.endsWith('.json'));
 
                 for (const path of outboxFiles) {
-                    const msgStr = await MetaOS.readFile(path);
-                    const msg = JSON.parse(msgStr);
-                    if (!msg.to) continue;
+                    try {
+                        const msgStr = await MetaOS.readFile(path);
+                        const msg = JSON.parse(msgStr);
+                        if (!msg.to) throw new Error("Missing 'to' field");
 
-                    const targetPubHex = nip19.decode(msg.to).data;
-                    const senderPrivHex = nip19.decode(config.privateKey).data;
-                    const senderPubHex = getPublicKey(senderPrivHex);
+                        const targetPubHex = nip19.decode(msg.to).data;
+                        const senderPrivHex = nip19.decode(config.privateKey).data;
+                        const senderPubHex = getPublicKey(senderPrivHex);
 
-                    // Package the payload
-                    const payload = {
-                        content: msg.content || "",
-                        files: []
-                    };
+                        // Package the payload
+                        const payload = {
+                            content: msg.content || "",
+                            files: []
+                        };
 
-                    // Load attachments from VFS
-                    if (msg.attachments && Array.isArray(msg.attachments)) {
-                        for (const attPath of msg.attachments) {
-                            try {
+                        // Load attachments from VFS
+                        if (msg.attachments && Array.isArray(msg.attachments)) {
+                            for (const attPath of msg.attachments) {
                                 const fileData = await MetaOS.readFile(attPath);
                                 payload.files.push({
                                     name: attPath.split('/').pop(),
                                     data: fileData
                                 });
-                            } catch(err) {
-                                MetaOS.addEventLog(`[Itera Link] Error: Could not read attachment ${attPath}`, 'error');
                             }
                         }
-                    }
 
-                    const payloadStr = JSON.stringify(payload);
-                    
-                    // Safety check (Nostr relays usually reject > 64KB)
-                    if (payloadStr.length > 60000) {
-                        MetaOS.addEventLog(`[Itera Link] Error: Message ${path} is too large (${Math.round(payloadStr.length/1024)}KB). Maximum is ~60KB.`, 'error');
+                        const payloadStr = JSON.stringify(payload);
+                        
+                        // Safety check
+                        if (payloadStr.length > 60000) {
+                            throw new Error(`Message is too large (${Math.round(payloadStr.length/1024)}KB). Maximum is ~60KB.`);
+                        }
+
+                        const encrypted = await nip04.encrypt(senderPrivHex, targetPubHex, payloadStr);
+
+                        let event = {
+                            kind: 4,
+                            pubkey: senderPubHex,
+                            created_at: Math.floor(Date.now() / 1000),
+                            tags: [['p', targetPubHex]],
+                            content: encrypted
+                        };
+                        event.id = getEventHash(event);
+                        event.sig = getSignature(event, senderPrivHex);
+
+                        let pub = relay.publish(event);
+                        if (pub && typeof pub.on === 'function') {
+                            await new Promise(resolve => { 
+                                pub.on('ok', resolve); 
+                                pub.on('failed', resolve); 
+                                setTimeout(resolve, 3000); 
+                            });
+                        } else if (pub && typeof pub.then === 'function') {
+                            await pub.catch(() => {});
+                        } else {
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                        }
+
+                        // Ensure deletion on success
+                        await MetaOS.deleteFile(path, {silent:true});
+                        MetaOS.addEventLog(`[Itera Link] Message successfully sent to ${msg.to.substring(0,12)}...`, 'itera_link_sent');
+
+                    } catch (fileErr) {
+                        console.error(`[IteraLink] Error processing file ${path}:`, fileErr);
+                        // Prevent infinite loop by renaming failed files
                         await MetaOS.renameFile(path, path.replace('.json', '.error'), {silent:true});
-                        continue;
+                        MetaOS.addEventLog(`[Itera Link] Failed to send message. File moved to .error: ${fileErr.message}`, 'error');
                     }
-
-                    const encrypted = await nip04.encrypt(senderPrivHex, targetPubHex, payloadStr);
-
-                    let event = {
-                        kind: 4,
-                        pubkey: senderPubHex,
-                        created_at: Math.floor(Date.now() / 1000),
-                        tags: [['p', targetPubHex]],
-                        content: encrypted
-                    };
-                    event.id = getEventHash(event);
-                    event.sig = getSignature(event, senderPrivHex);
-
-                    let pub = relay.publish(event);
-                    await new Promise(r => { pub.on('ok', r); pub.on('failed', r); setTimeout(r, 3000); });
-
-                    await MetaOS.deleteFile(path, {silent:true});
-                    MetaOS.addEventLog(`[Itera Link] Message successfully sent to ${msg.to.substring(0,10)}...`, 'itera_link_sent');
                 }
             } catch (e) {
                 console.error("[IteraLink] Sync Error:", e);
             }
+            
             isProcessing = false;
         }
 
@@ -271,7 +294,7 @@ Create the daemon that handles the actual networking. Note the specific CDN vers
 ---
 
 ## Phase 4: Deploy UI App
-Create the user interface for configuration. This UI listens to the IPC heartbeat to accurately reflect the daemon's status.
+Create the user interface for configuration.
 
 ### File: `apps/itera_link.html`
 ```html
@@ -292,7 +315,7 @@ Create the user interface for configuration. This UI listens to the IPC heartbea
             <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </button>
-            <h1 class="text-2xl font-bold tracking-tight">📡 Itera Link</h1>
+            <h1 class="text-2xl font-bold tracking-tight">🔗 Itera Link</h1>
         </div>
     </header>
 
