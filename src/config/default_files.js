@@ -662,8 +662,27 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
 
     // 3. UI Helpers
     global.AppUI = {
-        go: (path) => { /* 変更なし */ },
-        home: () => { /* 変更なし */ },
+
+        /**
+         * Navigate to another view
+         * @param {string} path - relative path from root or absolute path
+         */
+        go: (path) => {
+            if (global.MetaOS) {
+                global.MetaOS.spawn(path, { pid: 'main' });
+            } else {
+                window.location.href = path;
+            }
+        },
+
+        /**
+         * Go back to Dashboard
+         */
+        home: () => {
+            if (global.MetaOS) {
+                global.MetaOS.spawn('index.html', { pid: 'main' });
+            }
+        },
 
         /**
          * Show a toast notification
