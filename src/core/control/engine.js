@@ -220,6 +220,7 @@
 			const context = {
 				vfs: this.state.vfs,
 				config: this.state.configManager,
+				history: this.state.history,
 				...this.extraContext
 			};
 
