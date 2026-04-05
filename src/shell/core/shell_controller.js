@@ -29,7 +29,8 @@
 		STORAGE_BAR: 'storage-usage-bar',
 		STORAGE_TEXT: 'storage-usage-text',
 		SAVE_STATUS: 'save-status',
-		MODEL_STATUS: 'model-status'
+		MODEL_STATUS: 'model-status',
+		ADDRESS_BAR: 'preview-address-bar'
 	};
 
 	class ShellController {
@@ -206,6 +207,17 @@
 				chat,
 				explorer
 			} = this.panels;
+
+			if (this.els.ADDRESS_BAR) {
+				this.els.ADDRESS_BAR.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter') {
+						let path = this.els.ADDRESS_BAR.value.trim();
+						if (path.startsWith('metaos://view/')) path = path.replace('metaos://view/', '');
+						if (path) this.refreshPreview(path);
+						this.els.ADDRESS_BAR.blur();
+					}
+				});
+			}
 			const {
 				editor,
 				media,
@@ -314,6 +326,10 @@
 				else editor.open(path, content);
 
 				this._closeMobileDrawers(); // モバイル時は自動でパネルを閉じる
+			});
+			explorer.on('run_file', (path) => {
+				this.refreshPreview(path);
+				this._closeMobileDrawers();
 			});
 			explorer.on('history_event', (type, desc) => {
 				const lpml = `<event type="${type}">\n${desc}\n</event>`;
