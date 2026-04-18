@@ -266,7 +266,7 @@
         model: this.modelName,
         messages: this._formatMessages(messages),
         stream: true,
-        max_tokens: this.config.maxOutputTokens || 4096,
+        max_tokens: this.config.maxOutputTokens || 32768,
         temperature: this.config.temperature ?? 0.7,
         options: {
           num_ctx: this.numCtx,
